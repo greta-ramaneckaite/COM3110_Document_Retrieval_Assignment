@@ -130,10 +130,11 @@ if __name__ == '__main__':
     queries = Queries(config.queriesFile)
     allResults = ResultStore(config.outfile)
 
-    for qid in queries.qids():
+    for qid in queries.qids()[:1]:
         query = queries.getQuery(qid)
         results = retrieve.forQuery(query)
         allResults.store(qid,results)
+
     
-    allResults.output()
+    # allResults.output()
 
