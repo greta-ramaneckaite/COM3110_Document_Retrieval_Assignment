@@ -18,7 +18,8 @@ class Retrieve:
 
         doc_vector, query_vector = self.vectorCount(doc_word_freq, query_word_freq)
 
-
+        cosine_similarity = self.cosineSimilarity(doc_vector, query_vector, doc_word_freq, query_word_freq)
+        print(cosine_similarity)
 
         # for q_word, q_freq in query.items():
         #     for i_word, i_freq in self.index.items():
@@ -112,11 +113,22 @@ class Retrieve:
                 d_sum += math.pow(freq, 2)
             doc_vector[doc_id] = math.sqrt(d_sum)
 
-
-        # print(query_word_freq)
         q_sum = 0
         for word, freq in query_word_freq.items():
             q_sum += math.pow(freq, 2)
         query_vector = math.sqrt(q_sum)
 
         return doc_vector, query_vector
+
+    # calculate the cosine similarity between each vector and the query
+    def cosineSimilarity(self, doc_vector, query_vector, doc_word_freq, query_word_freq):
+        cosine_sim = {}
+        for doc_id, word_freq in doc_word_freq.items():
+            multi_sum = 0
+            for word, freq in word_freq.items():
+                multi_sum += freq * query_word_freq[word]
+            cosine_sim[doc_id] = multi_sum / (doc_vector[doc_id] * query_vector)
+
+        return cosine_sim
+
+
