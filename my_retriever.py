@@ -11,8 +11,9 @@ class Retrieve:
         total_docs_size = len(total_docs)
 
         match_list = self.matchDocs(query)
-        #
+
         new_index = self.updateIndex(match_list)
+        print(new_index)
 
 
 
@@ -69,6 +70,7 @@ class Retrieve:
                     doc_list.extend(self.index[q_word])
         return set(doc_list)
 
+    #  new index dictionary that only contains documents that match the query
     def updateIndex(self, match_list):
         new_index = {}
         for i_word, term_freq in self.index.items():
@@ -76,6 +78,14 @@ class Retrieve:
                 if doc_id in term_freq:
                     new_index[i_word] = self.index[i_word]
         return new_index
+
+    # creating lists of term frequencies for each document and query
+    def termFreqList(self, new_index):
+        list = []
+        for i_word, term_freq in new_index.items():
+            for x_word, x_freq in self.index.items():
+                if i_word == x_word:
+                    list.append(x_freq[1])
 
 
 
