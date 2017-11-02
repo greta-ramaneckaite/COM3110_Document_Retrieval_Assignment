@@ -13,7 +13,9 @@ class Retrieve:
         match_list = self.matchDocs(query)
 
         new_index = self.updateIndex(match_list)
-        print(new_index)
+
+        term_frequency = self.termFreqList(new_index, match_list)
+        # print(term_frequency)
 
 
 
@@ -80,13 +82,21 @@ class Retrieve:
         return new_index
 
     # creating lists of term frequencies for each document and query
-    def termFreqList(self, new_index):
-        list = []
-        for i_word, term_freq in new_index.items():
-            for x_word, x_freq in self.index.items():
-                if i_word == x_word:
-                    list.append(x_freq[1])
+    def termFreqList(self, new_index, match_list):
+        term_freq_list = dict.fromkeys(match_list, {})
 
+        # iterate through conditional index list
+        for i_word, doc_freq in new_index.items():
+            #  iterate through each doc, and freq for each word
+            for doc, freq in doc_freq.items():
+                # iterate through all conditional doc ids
+                for doc_id in term_freq_list.keys():
+                    #  if the doc id exists in the specific word doc dictionary:
+                    #  add its freq
+                    #  else set it to 0
+                    if doc_id in doc_freq:
+                        term_freq_list[doc_id][i_word] = freq
+                    else:
+                        term_freq_list[doc_id][i_word] =  0
 
-
-
+        return term_freq_list

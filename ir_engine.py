@@ -10,7 +10,7 @@ OPTIONS:
 ------------------------------------------------------------\
 """
 
-import sys, getopt, re
+import sys, getopt, re, time
 from my_retriever import Retrieve
 
 class CommandLine:
@@ -130,11 +130,18 @@ if __name__ == '__main__':
     queries = Queries(config.queriesFile)
     allResults = ResultStore(config.outfile)
 
+    start_time = time.time()
     for qid in queries.qids()[:1]:
         query = queries.getQuery(qid)
         results = retrieve.forQuery(query)
         allResults.store(qid,results)
 
-    
+
+    end_time = time.time()
+
+
+    print("Time: %.2fs" % (end_time - start_time))
+
+
     # allResults.output()
 
