@@ -16,7 +16,7 @@ class Retrieve:
 
         doc_word_freq, query_word_freq = self.termFreqList(new_index, match_list, query)
 
-
+        doc_vector, query_vector = self.vectorCount(doc_word_freq, query_word_freq)
 
 
 
@@ -102,3 +102,21 @@ class Retrieve:
 
         return term_freq_list, query_freq_list
 
+    # count vector sizes of each document and query
+    def vectorCount(self, doc_word_freq, query_word_freq):
+        doc_vector = {}
+
+        d_sum = 0
+        for doc_id, word_freq in doc_word_freq.items():
+            for word, freq in word_freq.items():
+                d_sum += math.pow(freq, 2)
+            doc_vector[doc_id] = math.sqrt(d_sum)
+
+
+        # print(query_word_freq)
+        q_sum = 0
+        for word, freq in query_word_freq.items():
+            q_sum += math.pow(freq, 2)
+        query_vector = math.sqrt(q_sum)
+
+        return doc_vector, query_vector
