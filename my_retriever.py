@@ -5,6 +5,10 @@ class Retrieve:
     def __init__(self,index,termWeighting):
         self.index = index
         self.termWeighting = termWeighting
+
+        """
+        calculating initial values that will be used later on
+        """
         self.all_docs = {}  # {doc_id: {word: freq, word: freq, ...}, ... }
         self.vector_dict = {}  # {doc_id: vector, doc_id: vector, ... }
         self.create_global_variables()
@@ -34,7 +38,7 @@ class Retrieve:
 
         return similarity_scores
 
-    # create list of candidate docs for given query
+    # create list of candidate docs for given query, contains doc ids
     def create_candidate_docs(self, query):
         cand_docs = set()
         # for every word in the query, check for doc presence in the index dictionary
@@ -59,10 +63,12 @@ class Retrieve:
         #  number of all documents
         self.doc_count = len(self.all_docs)
 
-        #  create vector length for each document
+        #  create vector length dictionary for each document
         self.create_vector_dict()
 
     # {doc_id: vector, doc_id: vector... }
+    # create vectors for each document
+    # formula calculated ==>   |d| = sqrt(sum(pow(doc_freq)))
     def create_vector_dict(self):
         for doc, words in self.all_docs.items():
             vector_total = 0
@@ -72,60 +78,71 @@ class Retrieve:
             self.vector_dict[doc] = math.sqrt(vector_total)
 
     # {doc_id: {word: tfidf}, doc_id: {word: tfidf}, ... }
+    # create tfidf dictionary  that contains all vector sizes for each document word
     def create_tfidf_dict(self):
-
         for doc, words in self.all_docs.items():
             self.tfidf_dict[doc] = {}
             for d_word, freq in words.items():
+                #  adds word vector size
                 self.tfidf_dict[doc][d_word] = self.tf_idf(d_word, doc)
 
+    #  calculation for the tfidf dictionary (create_tfidf_dict)
     def tf_idf(self, word, doc_id):
-        term_freq = self.index[word][doc_id]
+        # freq for specific word in a specific dictionary
+        word_freq = self.index[word][doc_id]
 
-        # Number of docs a word is in
+        # Number of documents that a word is in
         word_doc_count = len(self.index[word])
 
-        inverse_doc_count = math.log(self.doc_count/word_doc_count)
+        #  inverse document frequency
+        inverse_doc_freq = math.log(self.doc_count/word_doc_count)
 
-        tf_idf = term_freq * inverse_doc_count
+        #  final size of word vector
+        tf_idf = word_freq * inverse_doc_freq
 
         return tf_idf
-
+    """
+        - calculate cosine similarity scores according to the term weighting
+        - rank them from highest to lowest
+        - return top 10 values
+    """
     def cos_sim_generator(self, query, query_vector, q_tf_idf, candidate_docs):
-        similiarity_score_dict = {}  # {doc_id: score, doc_id: score, ... }
-        cand_doc_dict = {}
-        similarity_list = []
-
+        similarity_score = {}  # {doc_id: score, doc_id: score, ... }
+        cand_doc_dict = {} # {doc_id: {word: freq, ...}, ...}
+        similarity_list = [] # final list of all similarity scores from highest to lowest
+        # generate a dictionary of all candidate documents
         for doc in candidate_docs:
             cand_doc_dict[doc] = self.all_docs[doc]
 
+        # loop through all candidate documents
         for doc_id, words in cand_doc_dict.items():
+            #  find all common words between the query and candidate documents
+            same_words = query.keys() & cand_doc_dict[doc_id].keys()
 
+            # initialising the word frequency sum to be calculated according to the term weighting
+            word_freq_sum = 0
+
+            # calculates frequency sums according to the term weighting and calculates the similarity scores
             if self.termWeighting == 'tfidf':
-                same_words = query.keys() & cand_doc_dict[doc_id].keys()
-
-                word_freq_sum = 0
+                # calculate tf * idf for each common word
                 for word in same_words:
                     word_freq_sum += q_tf_idf[word] * self.tfidf_dict[doc_id][word]
 
-                similiarity_score_dict[doc_id] = word_freq_sum/self.vector_dict[doc_id]
+                similarity_score[doc_id] = word_freq_sum / self.vector_dict[doc_id]
 
             elif self.termWeighting == 'tf':
-                same_words = query.keys() & cand_doc_dict[doc_id].keys()
-
-                word_freq_sum = 0
                 for word in same_words:
                     word_freq_sum += query[word] * cand_doc_dict[doc_id][word]
 
-                similiarity_score_dict[doc_id] = word_freq_sum / self.vector_dict[doc_id]
+                similarity_score[doc_id] = word_freq_sum / self.vector_dict[doc_id]
             else:
-                same_words = query.keys() & cand_doc_dict[doc_id].keys()
                 word_freq_sum = len(same_words)
 
-                similiarity_score_dict[doc_id] = word_freq_sum / self.vector_dict[doc_id]
+                similarity_score[doc_id] = word_freq_sum / self.vector_dict[doc_id]
 
-        for k, v in sorted(similiarity_score_dict.items(), key=lambda kv: kv[1]):
+        # reorder the scores from highest to lowest
+        for k, v in sorted(similarity_score.items(), key=lambda kv: kv[1]):
             similarity_list.append(k)
 
+        # final return of the class (final output)
         return similarity_list[:10]
-
