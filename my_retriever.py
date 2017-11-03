@@ -5,130 +5,127 @@ class Retrieve:
     def __init__(self,index,termWeighting):
         self.index = index
         self.termWeighting = termWeighting
+        self.all_docs = {}  # {doc_id: {word: freq, word: freq, ...}, ... }
+        self.vector_dict = {}  # {doc_id: vector, doc_id: vector, ... }
+        self.create_global_variables()
+        self.tfidf_dict = {} # {doc_id: {word: tfidf}, doc_id: {word: tfidf}, ... }
+        self.create_tfidf_dict()
 
-    def forQuery(self,query):
-        total_docs = self.totalDocs()
-        total_docs_size = len(total_docs)
+    # Method to apply query to index
+    def forQuery(self, query):
+        # create an empty query tfidf dictionary
+        query_tf_idf = {}
+        # a set of documents that have the same words as the query
+        cand_docs = self.create_candidate_docs(query)
 
-        match_list = self.matchDocs(query)
+        vector_total = 0
+        for word, freq in query.items():
+            vector_total += math.pow(freq, 2)
 
-        new_index = self.updateIndex(match_list)
+            if word in self.index.keys():
+                term_freq = query[word]
+                word_doc_count = len(self.index[word])
+                inverse_doc_count = math.log(self.doc_count / word_doc_count)
+                query_tf_idf[word] = term_freq * inverse_doc_count
 
-        doc_word_freq, query_word_freq = self.termFreqList(new_index, match_list, query)
+        query_vector = math.sqrt(vector_total)
 
-        doc_vector, query_vector = self.vectorCount(doc_word_freq, query_word_freq)
+        similarity_scores = self.cos_sim_generator(query, query_vector, query_tf_idf, cand_docs)
 
-        cosine_similarity = self.cosineSimilarity(doc_vector, query_vector, doc_word_freq, query_word_freq)
-        print(cosine_similarity)
+        return similarity_scores
 
-        # for q_word, q_freq in query.items():
-        #     for i_word, i_freq in self.index.items():
-        #         # lists od document ids and frequency counts for each term
-        #         doc_id_list = set()
-        #         freq_count_list = set()
-        #         if i_word == q_word:
-        #             doc_vec_sum = 0
-        #             for doc_id, term_freq in i_freq.items():
-        #                 inverse_freq = self.inverseDocFreq(total_docs_size, term_freq)
-        #
-        #                 vec_size = self.docVecSize(term_freq, inverse_freq)
-        #                 doc_vec_sum += vec_size
-        #                 print(vec_size)
-        #
-        #                 doc_id_list.add(doc_id)
-        #                 freq_count_list.add(term_freq)
-        #
-        #             doc_vec_size = math.sqrt(doc_vec_sum)
-        #             print(doc_vec_size)
-        #             # match[i_word].append(doc_id_list, freq_count_list)
-        # # print(match)
+    # create list of candidate docs for given query
+    def create_candidate_docs(self, query):
+        cand_docs = set()
+        # for every word in the query, check for doc presence in the index dictionary
+        for word in query.keys():
+            if word in self.index:
+                cand_docs.update(set(self.index[word].keys()))
 
-        return range(1, 2)
+        return cand_docs
 
-    # total number of documents in the collection - |D|
-    def totalDocs(self):
-        total_docs = set()
-
-        for word, terms in self.index.items():
-            for doc_id, freq_count in terms.items():
-                    total_docs.add(doc_id)
-        return total_docs
-
-    # inverse document frequency (dfw) of each term (w)
-    def inverseDocFreq(self, total_docs_size, term_freq):
-        inverse_freq = math.log(total_docs_size/term_freq)
-        return inverse_freq
-
-    # size of each document vector - |d|
-    def docVecSize(self, term_freq, inverse_freq):
-        doc_vec_size = math.pow((term_freq * inverse_freq), 2)
-        return doc_vec_size
-
-    # removing all irrelevant documents to reduce data for information retrieval
-    def matchDocs(self, query):
-        doc_list = []
-        for q_word, b in query.items():
-            if q_word in self.index:
-                if self.index[q_word] not in doc_list:
-                    doc_list.extend(self.index[q_word])
-        return set(doc_list)
-
-    #  new index dictionary that only contains documents that match the query
-    def updateIndex(self, match_list):
-        new_index = {}
-        for i_word, term_freq in self.index.items():
-            for doc_id in match_list:
-                if doc_id in term_freq:
-                    new_index[i_word] = self.index[i_word]
-        return new_index
-
-    # creating lists of term frequencies for each document and query
-    def termFreqList(self, new_index, match_list, query):
-        term_freq_list = dict.fromkeys(match_list, {})
-        query_freq_list = {}
-
-        # iterate through conditional index list
-        for i_word, doc_freq in new_index.items():
-                # iterate through all conditional doc ids
-                for doc_id in term_freq_list.keys():
-                    if doc_id in doc_freq:
-                        term_freq_list[doc_id][i_word] = doc_freq[doc_id]
-                    else:
-                        term_freq_list[doc_id][i_word] =  0
-
-                if i_word in query.keys():
-                    query_freq_list[i_word] = query[i_word]
+    # Add values to global vars for later use
+    # {doc_id: {word: freq}, doc_id: {word: freq, word: freq}, ...}
+    def create_global_variables(self):
+        # creates a dictionary of all documents with words and their frequencies
+        for i_word, docs in self.index.items():
+            for doc_id, word_freq in docs.items():
+                if doc_id in self.all_docs:
+                    self.all_docs[doc_id][i_word] = word_freq
                 else:
-                    query_freq_list[i_word] = 0
+                    self.all_docs[doc_id] = {}
+                    self.all_docs[doc_id][i_word] = word_freq
 
-        return term_freq_list, query_freq_list
+        #  number of all documents
+        self.doc_count = len(self.all_docs)
 
-    # count vector sizes of each document and query
-    def vectorCount(self, doc_word_freq, query_word_freq):
-        doc_vector = {}
+        #  create vector length for each document
+        self.create_vector_dict()
 
-        d_sum = 0
-        for doc_id, word_freq in doc_word_freq.items():
-            for word, freq in word_freq.items():
-                d_sum += math.pow(freq, 2)
-            doc_vector[doc_id] = math.sqrt(d_sum)
+    # {doc_id: vector, doc_id: vector... }
+    def create_vector_dict(self):
+        for doc, words in self.all_docs.items():
+            vector_total = 0
+            for freq in words.values():
+                vector_total += math.pow(freq, 2)
 
-        q_sum = 0
-        for word, freq in query_word_freq.items():
-            q_sum += math.pow(freq, 2)
-        query_vector = math.sqrt(q_sum)
+            self.vector_dict[doc] = math.sqrt(vector_total)
 
-        return doc_vector, query_vector
+    # {doc_id: {word: tfidf}, doc_id: {word: tfidf}, ... }
+    def create_tfidf_dict(self):
 
-    # calculate the cosine similarity between each vector and the query
-    def cosineSimilarity(self, doc_vector, query_vector, doc_word_freq, query_word_freq):
-        cosine_sim = {}
-        for doc_id, word_freq in doc_word_freq.items():
-            multi_sum = 0
-            for word, freq in word_freq.items():
-                multi_sum += freq * query_word_freq[word]
-            cosine_sim[doc_id] = multi_sum / (doc_vector[doc_id] * query_vector)
+        for doc, words in self.all_docs.items():
+            self.tfidf_dict[doc] = {}
+            for d_word, freq in words.items():
+                self.tfidf_dict[doc][d_word] = self.tf_idf(d_word, doc)
 
-        return cosine_sim
+    def tf_idf(self, word, doc_id):
+        term_freq = self.index[word][doc_id]
 
+        # Number of docs a word is in
+        word_doc_count = len(self.index[word])
+
+        inverse_doc_count = math.log(self.doc_count/word_doc_count)
+
+        tf_idf = term_freq * inverse_doc_count
+
+        return tf_idf
+
+    def cos_sim_generator(self, query, query_vector, q_tf_idf, candidate_docs):
+        similiarity_score_dict = {}  # {doc_id: score, doc_id: score, ... }
+        cand_doc_dict = {}
+        similarity_list = []
+
+        for doc in candidate_docs:
+            cand_doc_dict[doc] = self.all_docs[doc]
+
+        for doc_id, words in cand_doc_dict.items():
+
+            if self.termWeighting == 'tfidf':
+                same_words = query.keys() & cand_doc_dict[doc_id].keys()
+
+                word_freq_sum = 0
+                for word in same_words:
+                    word_freq_sum += q_tf_idf[word] * self.tfidf_dict[doc_id][word]
+
+                similiarity_score_dict[doc_id] = word_freq_sum/self.vector_dict[doc_id]
+
+            elif self.termWeighting == 'tf':
+                same_words = query.keys() & cand_doc_dict[doc_id].keys()
+
+                word_freq_sum = 0
+                for word in same_words:
+                    word_freq_sum += query[word] * cand_doc_dict[doc_id][word]
+
+                similiarity_score_dict[doc_id] = word_freq_sum / self.vector_dict[doc_id]
+            else:
+                same_words = query.keys() & cand_doc_dict[doc_id].keys()
+                word_freq_sum = len(same_words)
+
+                similiarity_score_dict[doc_id] = word_freq_sum / self.vector_dict[doc_id]
+
+        for k, v in sorted(similiarity_score_dict.items(), key=lambda kv: kv[1]):
+            similarity_list.append(k)
+
+        return similarity_list[:10]
 

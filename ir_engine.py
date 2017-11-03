@@ -131,7 +131,7 @@ if __name__ == '__main__':
     allResults = ResultStore(config.outfile)
 
     start_time = time.time()
-    for qid in queries.qids()[:1]:
+    for qid in queries.qids():
         query = queries.getQuery(qid)
         results = retrieve.forQuery(query)
         allResults.store(qid,results)
@@ -143,5 +143,5 @@ if __name__ == '__main__':
     print("Time: %.2fs" % (end_time - start_time))
 
 
-    # allResults.output()
+    allResults.output()
 
