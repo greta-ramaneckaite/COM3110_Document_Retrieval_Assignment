@@ -1,3 +1,9 @@
+"""
+    Information retrievak assignment
+    05-11-2017
+    Greta Ramaneckaite
+"""
+
 import math
 
 class Retrieve:
@@ -125,10 +131,12 @@ class Retrieve:
             # calculates frequency sums according to the term weighting and calculates the similarity scores
             if self.termWeighting == 'tfidf':
                 # calculate tf * idf for each common word
+                vector = math.sqrt(sum(math.pow(i, 2) for i in self.tfidf_dict[doc_id].values()))
                 for word in same_words:
+
                     word_freq_sum += q_tf_idf[word] * self.tfidf_dict[doc_id][word]
 
-                similarity_score[doc_id] = word_freq_sum / self.vector_dict[doc_id]
+                similarity_score[doc_id] = word_freq_sum / vector
 
             elif self.termWeighting == 'tf':
                 for word in same_words:
@@ -145,4 +153,4 @@ class Retrieve:
             similarity_list.append(k)
 
         # final return of the class (final output)
-        return similarity_list[:10]
+        return similarity_list[::-1][:10]
